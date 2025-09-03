@@ -33,7 +33,7 @@ Base and X-LoRA Huggingface model IDs may be specified through command line swit
 ## Installation
 Pending a pip release, run the following command to install X-LoRA.
 
-`pip install git+https://github.com/EricLBuehler/xlora.git`
+`pip install git+https://github.com/seongbin1231/xlora.git`
 
 ## Examples
 Excerpt from [this](./examples/simple.ipynb) example.
