@@ -142,13 +142,30 @@ class xLoRAClassifier(nn.Module):
                 kwargs["output_hidden_states"] = True
                 kwargs["return_dict"] = True
 
+                # ================================================================
+                # 💡💡💡 BUG FIX 2: VLM을 위한 실제 시퀀스 길이 계산 💡💡💡
+                # ================================================================
+                final_seq_len = seq_len
+                if "pixel_values" in kwargs and hasattr(model, "vision_backbone"):
+                    # UniVLA 모델의 특성을 기반으로 이미지 토큰 수를 계산합니다.
+                    # 이 값은 모델 아키텍처에 따라 달라질 수 있습니다.
+                    try:
+                        # PEFT로 래핑된 모델을 고려하여 안전하게 접근
+                        vision_backbone = getattr(model, "vision_backbone", getattr(model.model, "vision_backbone", None))
+                        num_image_tokens = vision_backbone.featurizer.patch_embed.num_patches # 1개 뷰
+                        final_seq_len += num_image_tokens
+                    except AttributeError:
+                        # 다른 모델일 경우를 대비한 예외 처리
+                        pass
+                # ================================================================
+
                 result: ModelOutput = model.forward(
                     *args,
                     input_ids=input_ids,
                     inputs_embeds=inputs_embeds,
                     _xlora_classifier_inhibitor_flag=InhibitorFlagPayload(
                         batch_size=batch_size,
-                        seq_len=seq_len,
+                        seq_len=final_seq_len,
                         override_scaling_pass_value=self.override_scaling_pass_value,
                     ),
                     **kwargs,
@@ -173,7 +190,7 @@ class xLoRAClassifier(nn.Module):
 
         ### Classifier run
 
-        scalings = logits.reshape(batch_size, seq_len, self.n_layers, self.n_classes)
+        scalings = logits.reshape(batch_size, hidden_state.shape[1], self.n_layers, self.n_classes)
         # scalings = [batch_size, seq_len, n_layers, n_classes]
 
         if self.config.enable_softmax:
